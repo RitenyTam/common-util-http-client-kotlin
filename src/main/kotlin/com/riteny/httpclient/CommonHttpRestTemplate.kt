@@ -7,7 +7,10 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.http.converter.StringHttpMessageConverter
 import org.springframework.web.client.RestTemplate
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 
 class CommonHttpRestTemplate private constructor() {
 
@@ -19,6 +22,7 @@ class CommonHttpRestTemplate private constructor() {
          * 獲取實例對象（鏈式編程風格）
          */
         fun getInstance() = CommonHttpRestTemplate()
+
 
         fun <T> executeGetMethod(
             url: String,
@@ -40,7 +44,7 @@ class CommonHttpRestTemplate private constructor() {
 
             try {
                 val httpEntity = HttpEntity(params, headers)
-                val response = getRestTemplate(connTimeout, readTimeout).exchange(
+                val response = getRestTemplate(connTimeout, readTimeout, StandardCharsets.UTF_8).exchange(
                     tempUrl,
                     HttpMethod.GET,
                     httpEntity,
@@ -442,7 +446,7 @@ class CommonHttpRestTemplate private constructor() {
 
             try {
                 val httpEntity = HttpEntity(params, headers)
-                val response = getRestTemplate(connTimeout, readTimeout).exchange(
+                val response = getRestTemplate(connTimeout, readTimeout, StandardCharsets.UTF_8).exchange(
                     url,
                     HttpMethod.POST,
                     httpEntity,
@@ -749,7 +753,7 @@ class CommonHttpRestTemplate private constructor() {
 
             try {
                 val httpEntity = HttpEntity(params, headers)
-                val response = getRestTemplate(connTimeout, readTimeout).exchange(
+                val response = getRestTemplate(connTimeout, readTimeout, StandardCharsets.UTF_8).exchange(
                     url,
                     HttpMethod.PUT,
                     httpEntity,
@@ -1059,7 +1063,7 @@ class CommonHttpRestTemplate private constructor() {
 
             try {
                 val httpEntity = HttpEntity(params, headers)
-                val response = getRestTemplate(connTimeout, readTimeout).exchange(
+                val response = getRestTemplate(connTimeout, readTimeout, StandardCharsets.UTF_8).exchange(
                     tempUrl,
                     HttpMethod.DELETE,
                     httpEntity,
@@ -1442,13 +1446,21 @@ class CommonHttpRestTemplate private constructor() {
         /**
          * 獲取RestTemplate請求對象
          */
-        private fun getRestTemplate(connectionTimeout: Int, readTimeout: Int): RestTemplate {
+        private fun getRestTemplate(connectionTimeout: Int, readTimeout: Int, charset: Charset): RestTemplate {
 
             val requestFactory = SimpleClientHttpRequestFactory()
             requestFactory.setConnectTimeout(connectionTimeout)
             requestFactory.setReadTimeout(readTimeout)
 
-            return RestTemplate(requestFactory)
+            val restTemplate = RestTemplate(requestFactory)
+            val list = restTemplate.messageConverters
+            list.forEach { item ->
+                if (item is StringHttpMessageConverter) {
+                    item.defaultCharset = charset
+                }
+            }
+
+            return restTemplate
         }
     }
 
@@ -1462,6 +1474,8 @@ class CommonHttpRestTemplate private constructor() {
 
     private var readTimeout = 100000
 
+    private var charset = StandardCharsets.UTF_8
+
     /**
      * 設置請求路徑
      *
@@ -1469,6 +1483,11 @@ class CommonHttpRestTemplate private constructor() {
      */
     fun setUrl(url: String): CommonHttpRestTemplate {
         this.url = url
+        return this
+    }
+
+    fun setCharset(charset: Charset): CommonHttpRestTemplate {
+        this.charset = charset
         return this
     }
 
@@ -1644,14 +1663,8 @@ class CommonHttpRestTemplate private constructor() {
         }
     }
 
-    private fun getRestTemplate(): RestTemplate {
+    private fun getRestTemplate(): RestTemplate = Companion.getRestTemplate(connectionTimeout, readTimeout, charset)
 
-        val requestFactory = SimpleClientHttpRequestFactory()
-        requestFactory.setConnectTimeout(connectionTimeout)
-        requestFactory.setReadTimeout(readTimeout)
-
-        return RestTemplate(requestFactory)
-    }
 
     private fun parseParamsToUrlString(): String {
 
